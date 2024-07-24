@@ -7,9 +7,9 @@ import {
   toClassName,
 } from './util.js';
 import GoogleReCaptcha from './integrations/recaptcha.js';
-import componentDecorator from './mappings.js';
+import componentDecorater from './mappings.js';
 import DocBasedFormToAF from './transform.js';
-import transferRepeatableDOM from './components/repeat/repeat.js';
+import transferRepeatableDOM from './components/repeat.js';
 import { handleSubmit } from './submit.js';
 import { getSubmitBaseUrl, emailPattern } from './constant.js';
 
@@ -311,8 +311,8 @@ function inputDecorator(field, element) {
     if (field.maxFileSize) {
       input.dataset.maxFileSize = field.maxFileSize;
     }
-    if (field.default !== undefined) {
-      input.setAttribute('value', field.default);
+    if (field.default) {
+      input.value = field.default;
     }
     if (input.type === 'email') {
       input.pattern = emailPattern;
@@ -355,11 +355,14 @@ export async function generateFormRendition(panel, container, getItems = (p) => 
         element.className += ` ${field.appliedCssClassNames}`;
       }
       colSpanDecorator(field, element);
+      const decorator = await componentDecorater(field);
       if (field?.fieldType === 'panel') {
         await generateFormRendition(field, element, getItems);
         return element;
       }
-      await componentDecorator(element, field, container);
+      if (typeof decorator === 'function') {
+        return decorator(element, field, container);
+      }
       return element;
     }
     return null;
@@ -367,7 +370,11 @@ export async function generateFormRendition(panel, container, getItems = (p) => 
 
   const children = await Promise.all(promises);
   container.append(...children.filter((_) => _ != null));
-  await componentDecorator(container, panel);
+  const decorator = await componentDecorater(panel);
+  if (typeof decorator === 'function') {
+    return decorator(container, panel);
+  }
+  return container;
 }
 
 function enableValidation(form) {
